@@ -1,0 +1,17 @@
+resume
+press_homekey
+sleep 2
+touch 258 244
+sleep 3
+touch 248 413
+sleep 3
+touch 160 413
+sleep 3
+sleep 180
+touch 160 413
+sleep 3
+touch 248 413
+sleep 3
+press_homekey
+sleep 2
+press_pwrkey

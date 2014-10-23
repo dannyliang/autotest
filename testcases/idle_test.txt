@@ -1,0 +1,6 @@
+resume
+press_homekey
+sleep 2
+sleep 180
+press_homekey
+press_pwrkey

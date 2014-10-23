@@ -1,0 +1,7 @@
+name woodduck
+dev_touch /dev/input/event4
+dev_key /dev/input/event0
+length 480
+width 320
+num_pts 18
+delay_us 21500

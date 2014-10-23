@@ -1,0 +1,5 @@
+name flame
+dev_touch /dev/input/event0
+dev_key /dev/input/event5
+length 854
+width 480

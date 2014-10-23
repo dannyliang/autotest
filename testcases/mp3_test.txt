@@ -1,0 +1,21 @@
+resume
+press_homekey
+sleep 2
+slide_up
+sleep 3
+touch 160 122
+sleep 3
+touch 108 185
+sleep 3
+press_pwrkey
+sleep 45
+resume
+touch 152 457
+sleep 3
+touch 46 53
+sleep 3
+press_homekey
+sleep 2
+press_homekey
+sleep 2
+press_pwrkey

@@ -1,0 +1,8 @@
+press_pwrkey
+sleep 2
+screen_unlock
+sleep 2
+press_homekey
+sleep 2
+press_pwrkey
+sleep 180
