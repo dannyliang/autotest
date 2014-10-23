@@ -332,7 +332,8 @@ static int set_rtc_alarm (unsigned int seconds)
 
 	do{
 		retval = ioctl(fd, RTC_WKALM_SET, &alarm);
-	   	printf("Unable to set alarm, %s\n", strerror(errno));
+		if (retval < 0)
+			printf("Unable to set alarm, %s\n", strerror(errno));
 	} while(retval < 0);
 
 	if (retval < 0) {
