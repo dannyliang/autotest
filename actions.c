@@ -287,6 +287,38 @@ void long_touch(struct device_info * dev, unsigned int x, unsigned int y)
 	_touch(dev, x, y, 3);
 }
 
+static int add_rtc_time (struct rtc_wkalrm *alarm, unsigned int seconds)
+{
+	/* ideally, we won't set RTC alarm which exceed 24hrs*/
+	if ( seconds > 86400 )
+		return -EINVAL;
+
+	alarm->time.tm_sec += seconds;
+	if (alarm->time.tm_sec > 60 ){
+		alarm->time.tm_min += alarm->time.tm_sec/60 ;
+		alarm->time.tm_sec %= 60;
+		if (alarm->time.tm_min > 60){
+			alarm->time.tm_hour += alarm->time.tm_min/60 ;
+			alarm->time.tm_min %= 60;
+			if (alarm->time.tm_hour > 24){
+				alarm->time.tm_wday ++;
+				alarm->time.tm_wday %= 7;
+				alarm->time.tm_mday ++;
+				/* TODO */
+			}
+		}
+	}
+	return 0;
+}
+
+static void dump_rtc_alarm(struct rtc_wkalrm * alarm)
+{
+	printf("RTC alarm: %d:%d:%d, mday: %d, mon: %d, year: %d, wday: %d, yday: %d\n",
+		alarm->time.tm_sec, alarm->time.tm_min, alarm->time.tm_hour,
+		alarm->time.tm_mday, alarm->time.tm_mon, alarm->time.tm_year,
+		alarm->time.tm_wday, alarm->time.tm_yday);
+}
+
 
 static int set_rtc_alarm (unsigned int seconds)
 {
@@ -294,7 +326,6 @@ static int set_rtc_alarm (unsigned int seconds)
 	int retval = 0;
 	struct rtc_wkalrm alarm;
 	struct rtc_time now;
-	struct timespec t;	
 
 #if 0
 	do{
@@ -321,20 +352,22 @@ static int set_rtc_alarm (unsigned int seconds)
   	}
 	
 	retval = ioctl(fd, RTC_RD_TIME, &(alarm.time));
-	
+
+	if(AT_DBG)
+		dump_rtc_alarm(&alarm);
+
 	if (retval < 0) {
 	   	printf("Unable to read time, %s\n", strerror(errno));
 		close(fd);
 	    return -1;
 	}
 
-	alarm.time.tm_sec += seconds;
+	add_rtc_time( &alarm, seconds);	
 
-	do{
-		retval = ioctl(fd, RTC_WKALM_SET, &alarm);
-		if (retval < 0)
-			printf("Unable to set alarm, %s\n", strerror(errno));
-	} while(retval < 0);
+	if(AT_DBG)
+		dump_rtc_alarm(&alarm);
+
+	retval = ioctl(fd, RTC_WKALM_SET, &alarm);
 
 	if (retval < 0) {
 	   	printf("Unable to set alarm, %s\n", strerror(errno));
@@ -372,6 +405,7 @@ int suspend(struct device_info * dev, unsigned int seconds)
 			system("echo autotest > /sys/power/wake_lock");
 			break;
 		}
+		sleep(1);
 	}
 
 	return 0;
