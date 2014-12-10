@@ -13,6 +13,8 @@
 #define SYN_MT_REPORT 2
 #define ABS_PRESSURE 24
 #define ABS_MT_TOUCH_MAJOR 48
+#define ABS_MT_WIDTH_MAJOR 50
+#define ABS_MT_TRACKING_ID 57
 #define ABS_MT_POSITION_X 53
 #define ABS_MT_POSITION_Y 54
 #define BTN_TOUCH 330
@@ -21,6 +23,10 @@
 // VALUE
 #define UP 0
 #define DOWN 1
+
+#define INPUT_TOUCH_DEV_CLASS_ST 		0x01
+#define INPUT_TOUCH_DEV_CLASS_MT 		0x02
+#define INPUT_TOUCH_DEV_CLASS_MT_SYNC 	0x04
 
 #define EVIOCGVERSION _IOR('E', 0x01, int) /* get driver version */
 
@@ -32,6 +38,7 @@ struct device_info {
     __u16 width;
 	__u8  num_pts;
 	__u16 delay_us;
+	__u8 dev_flag;
 };
 
 struct action {

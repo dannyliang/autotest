@@ -11,12 +11,27 @@ void config_dump(struct device_info * dev)
 	printf("width: %d\n", dev->width);
 	printf("num_pts: %d\n", dev->num_pts);
 	printf("delay_us: %d\n", dev->delay_us);
+	printf("dev_flag: %d\n", dev->dev_flag);
 }
 
 /*
 *  Parse device configure file included name, dev_touch, dev_key, length,
 *  width, num_pts and delay_us
 */
+
+static int auto_set_dev_flag(struct device_info * dev)
+{
+	int retval = 0;
+	if(!strcmp(dev->name, "woodduck"))
+		dev->dev_flag = INPUT_TOUCH_DEV_CLASS_MT_SYNC;
+	else if(!strcmp(dev->name, "flame"))
+		dev->dev_flag = INPUT_TOUCH_DEV_CLASS_MT;
+	else{
+		printf("Error: cannot set device flag automatically\n");
+		retval = -1;
+	}
+	return retval;
+}
 
 int config_parser(FILE * cfg, struct device_info * dev)
 {
@@ -34,7 +49,6 @@ int config_parser(FILE * cfg, struct device_info * dev)
 		}else if (!strcmp("length", item)){
 			fscanf(cfg, "%d", &value);
 			dev->length = value;
-			printf("%d, %d\n",dev->length, value);
 		}else if (!strcmp("width", item)){
 			fscanf(cfg, "%d", &value);
 			dev->width = value;
@@ -61,6 +75,9 @@ int config_parser(FILE * cfg, struct device_info * dev)
 
 	if (!dev->delay_us)
 		dev->delay_us = 21500;
+
+	if (!dev->dev_flag)
+		auto_set_dev_flag(dev);
 
 	config_dump(dev);
 	return ret;

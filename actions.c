@@ -76,65 +76,86 @@ void init_actions(struct device_info *dev)
 
 static int exec_sendevent(const char* event_dev, int type, int code, int val)
 {
-    int i, fd, ret, version;
-    struct input_event event;
+	int i, fd, ret, version;
+	struct input_event event;
 
-    fd = open(event_dev, O_RDWR);
-    if(fd < 0) {
-        fprintf(stderr, "could not open %s, %s\n", event_dev, strerror(errno));
-        return 1;
-    }
-    if (ioctl(fd, EVIOCGVERSION, &version)) {
-        fprintf(stderr, "could not get driver version for %s, %s\n", event_dev, strerror(errno));
-        return 1;
-    }
-    memset(&event, 0, sizeof(event));
-    event.type = type;
-    event.code = code;
-    event.value = val;
-    ret = write(fd, &event, sizeof(event));
-    if(ret < sizeof(event)) {
-        fprintf(stderr, "write event failed, %s\n", strerror(errno));
-        return -1;
-    }
-    return 0;
+	fd = open(event_dev, O_RDWR);
+	if(fd < 0) {
+		fprintf(stderr, "could not open %s, %s\n", event_dev, strerror(errno));
+		return 1;
+	}
+	if (ioctl(fd, EVIOCGVERSION, &version)) {
+		fprintf(stderr, "could not get driver version for %s, %s\n", event_dev, strerror(errno));
+		return 1;
+	}
+	memset(&event, 0, sizeof(event));
+	event.type = type;
+	event.code = code;
+	event.value = val;
+	ret = write(fd, &event, sizeof(event));
+	if(ret < sizeof(event)) {
+		fprintf(stderr, "write event failed, %s\n", strerror(errno));
+		return -1;
+	}
+	return 0;
 }
 
-static void event_end( const char* event_dev) {
-    exec_sendevent(event_dev, EV_SYN, SYN_MT_REPORT, 0);
-    exec_sendevent(event_dev, EV_SYN, SYN_REPORT, 0);
+static void event_end( const char* event_dev, int flag)
+{
+	if(flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC)
+		exec_sendevent(event_dev, EV_SYN, SYN_MT_REPORT, 0);
+
+	exec_sendevent(event_dev, EV_SYN, SYN_REPORT, 0);
 }
 
 static int _slide(struct device_info *dev, enum action_type type)
 {
-    char cmd[50] = {0};
-    int x = actions[type].start_x, y = actions[type].start_y;
+	char cmd[50] = {0};
+	int x = actions[type].start_x, y = actions[type].start_y;
 	int off_x, off_y, i;
-    exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 100);
-    exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 100);
-    exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH, DOWN);
-	
-    off_x = (actions[type].end_x - actions[type].start_x)/actions[type].num_pts;
-    off_y = (actions[type].end_y - actions[type].start_y)/actions[type].num_pts;
 
-    for( i=0; i < actions[type].num_pts; i++){
-        if(i == 0)
-            exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 64);
+	if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC){
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 100);
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 100);
+		exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH, DOWN);
+	}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT){
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TRACKING_ID, 0);
+	}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_ST){
+		;
+	}
 
-        exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_X, x);
-        exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_Y, y);
-        event_end(dev->dev_touch);
-        x = x + off_x;
-        y = y + off_y;
-        usleep(actions[type].delay_us);
-    }
-    exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH ,UP);
-    exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 0);
-    event_end(dev->dev_touch);
-    event_end(dev->dev_touch);
-    event_end(dev->dev_touch);
+	off_x = (actions[type].end_x - actions[type].start_x)/actions[type].num_pts;
+	off_y = (actions[type].end_y - actions[type].start_y)/actions[type].num_pts;
 
-    return 0;
+	for( i=0; i < actions[type].num_pts; i++){
+		if(i == 0 && dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC)
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 64);
+
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_X, x);
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_Y, y);
+		event_end(dev->dev_touch, dev->dev_flag);
+		x = x + off_x;
+		y = y + off_y;
+		usleep(actions[type].delay_us);
+	}
+
+	if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC){
+		exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH ,UP);
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 0);
+		event_end(dev->dev_touch, dev->dev_flag);
+		event_end(dev->dev_touch, dev->dev_flag);
+		event_end(dev->dev_touch, dev->dev_flag);
+	}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT){
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 0x21);
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_WIDTH_MAJOR, 0x21);
+		event_end(dev->dev_touch, dev->dev_flag);
+		exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TRACKING_ID, 0xffffffff);
+		event_end(dev->dev_touch, dev->dev_flag);
+	}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_ST){
+		;
+	}
+
+	return 0;
 }
 
 static int check_boundary( struct device_info *dev, unsigned int x, unsigned int y)
@@ -152,35 +173,49 @@ static int check_boundary( struct device_info *dev, unsigned int x, unsigned int
 
 static int _touch(struct device_info *dev, unsigned int x, unsigned y, int pts)
 {
-    char cmd[50] = {0};
+	char cmd[50] = {0};
 	int i, retval;
 
 	retval = check_boundary(dev, x, y);
 
 	if(!retval){
-	    exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 100);
-    	exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 100);
-    	exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH, DOWN);
+		if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC){
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 100);
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 100);
+			exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH, DOWN);
+		}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT){
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TRACKING_ID, 0);
+		}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_ST){
+			;
+		}
 
-	    for( i=0; i < pts; i++){
-    	    if(i == 0)
-        	    exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 64);
+		for( i=0; i < pts; i++){
+			if(i == 0 && dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC)
+				exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TOUCH_MAJOR, 64);
 
-	        exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_X, x);
-    	    exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_Y, y);
-        	event_end(dev->dev_touch);
-	        usleep(dev->delay_us);
-    	}
-	    exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH ,UP);
-   		exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 0);
-	    event_end(dev->dev_touch);
-	    event_end(dev->dev_touch);
-	    event_end(dev->dev_touch);
-	}
-	else if(AT_DBG)
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_X, x);
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_POSITION_Y, y);
+			event_end(dev->dev_touch, dev->dev_flag);
+			usleep(dev->delay_us);
+		}
+
+		if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT_SYNC){
+			exec_sendevent(dev->dev_touch, EV_KEY, BTN_TOUCH ,UP);
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_PRESSURE, 0);
+			event_end(dev->dev_touch, dev->dev_flag);
+			event_end(dev->dev_touch, dev->dev_flag);
+			event_end(dev->dev_touch, dev->dev_flag);
+		}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_MT){
+			exec_sendevent(dev->dev_touch, EV_ABS, ABS_MT_TRACKING_ID, 0xffffffff);
+			event_end(dev->dev_touch, dev->dev_flag);
+		}else if(dev->dev_flag == INPUT_TOUCH_DEV_CLASS_ST){
+			;
+		}
+	}else{
 		printf("Error: Position is out of range\n");
+	}
 
-    return retval;
+	return retval;
 }
 
 void slide_up(struct device_info * dev)
@@ -226,11 +261,11 @@ void screen_unlock(struct device_info * dev)
 static void _press_key(struct device_info *dev, int code,  unsigned int delay)
 {
 	exec_sendevent(dev->dev_key, EV_KEY, code, DOWN);
-	exec_sendevent(dev->dev_key, EV_SYN, 0, 0);
+	exec_sendevent(dev->dev_key, EV_SYN, SYN_REPORT, 0);
 	if(delay)
 		sleep(delay);
 	exec_sendevent(dev->dev_key, EV_KEY, code, UP);
-	exec_sendevent(dev->dev_key, EV_SYN, 0, 0);
+	exec_sendevent(dev->dev_key, EV_SYN, SYN_REPORT, 0);
 }
 
 void press_pwrkey(struct device_info *dev)
@@ -249,6 +284,16 @@ void long_press_pwrkey(struct device_info *dev)
 	_press_key(dev, KEY_POWER, 1);
 }
 
+void _press_homekey(struct device_info *dev, unsigned int delay)
+{
+	exec_sendevent(dev->dev_touch, EV_KEY, KEY_HOME, DOWN);
+	exec_sendevent(dev->dev_touch, EV_SYN, SYN_REPORT, 0);
+	if(delay)
+		sleep(delay);
+	exec_sendevent(dev->dev_touch, EV_KEY, KEY_HOME, UP);
+	exec_sendevent(dev->dev_touch, EV_SYN, SYN_REPORT, 0);
+}
+
 void press_homekey(struct device_info *dev)
 {
 	if (AT_DBG)
@@ -257,7 +302,7 @@ void press_homekey(struct device_info *dev)
 	if(!strcmp(dev->name, "woodduck"))
 		_touch(dev, 159, 510, 1);
 	else
-		_press_key(dev, KEY_HOME, 0);
+		_press_homekey(dev, 0);
 }
 
 void long_press_homekey(struct device_info *dev)
