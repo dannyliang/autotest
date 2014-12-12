@@ -7,6 +7,7 @@
 #include <sys/time.h>
 #include <time.h>
 #include <linux/android_alarm.h>
+#include <linux/rtc.h>
 
 #include "autotest.h"
 
